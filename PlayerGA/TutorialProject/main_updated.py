@@ -10,6 +10,7 @@ import pickle
 import pygad
 import threading
 import kivy.base
+import time
 
 class CollectCoinThread(threading.Thread):
 
@@ -24,18 +25,14 @@ class CollectCoinThread(threading.Thread):
                                parent_selection_type ="random",
                                sol_per_pop=10,
                                num_genes=2,
-                               init_range_low=0.3,
-                               init_range_high=1.3,
-                            #    random_mutation_min_val=1.0,
-                            #    random_mutation_max_val=10.0,
-                            #    mutation_by_replacement=True,
-                            #    mutation_type="swap",
-                            #    mutation_percent_genes=10,
+                               init_range_low=0.0,
+                               init_range_high=1.0,
                                random_mutation_min_val=0.0,
                                random_mutation_max_val=1.0,
                                mutation_by_replacement=True,
                                mutation_type="random",
-                               mutation_percent_genes=1,
+                            #    mutation_percent_genes=1,
+                               mutation_num_genes=1,
                                on_generation=callback_generation)
 
         ga_instance.run()
@@ -144,7 +141,7 @@ def callback_generation(ga_instance):
         best_sol = ga_instance.population[max_index+1]
         app.start_char_animation(lvl_num, [float(best_sol[0]),  float(best_sol[1])])
 
-
+    time.sleep(curr_screen.char_anim_duration)       
 class CointexApp(kivy.app.App):
 
     def on_start(self):
