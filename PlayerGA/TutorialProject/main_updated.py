@@ -26,11 +26,16 @@ class CollectCoinThread(threading.Thread):
                                num_genes=2,
                                init_range_low=0.3,
                                init_range_high=1.3,
-                               random_mutation_min_val=1.0,
-                               random_mutation_max_val=10.0,
+                            #    random_mutation_min_val=1.0,
+                            #    random_mutation_max_val=10.0,
+                            #    mutation_by_replacement=True,
+                            #    mutation_type="swap",
+                            #    mutation_percent_genes=10,
+                               random_mutation_min_val=0.0,
+                               random_mutation_max_val=1.0,
                                mutation_by_replacement=True,
-                               mutation_type="swap",
-                               mutation_percent_genes=10,
+                               mutation_type="random",
+                               mutation_percent_genes=1,
                                on_generation=callback_generation)
 
         ga_instance.run()
