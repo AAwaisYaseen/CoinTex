@@ -23,7 +23,7 @@ class CollectCoinThread(threading.Thread):
                                num_parents_mating=2,
                                fitness_func=fitness_func,
                                parent_selection_type ="random",
-                               sol_per_pop=10,
+                               sol_per_pop=20,
                                num_genes=2,
                                init_range_low=0.0,
                                init_range_high=1.0,
@@ -31,7 +31,6 @@ class CollectCoinThread(threading.Thread):
                                random_mutation_max_val=1.0,
                                mutation_by_replacement=True,
                                mutation_type="random",
-                            #    mutation_percent_genes=1,
                                mutation_num_genes=1,
                                on_generation=callback_generation)
 
@@ -89,11 +88,7 @@ def fitness_func(ga_instance, solution, solution_idx):
         char_monst_v_distance = abs(solution[1] - monst_pos[1])
         # the following penalize the GA chromosome which is too close to the monster
         if char_monst_h_distance <= 0.2 and char_monst_v_distance <= 0.5:
-            output -= 0
-
-        else:
-
-            output += 0
+            output *= 0.1
 
     fires_pos = []
     # "fires_pos" indicates the positions of all fires
@@ -107,11 +102,7 @@ def fitness_func(ga_instance, solution, solution_idx):
         char_fire_v_distance = abs(solution[1] - fire_pos[1])
         # the following penalize the GA chromosome which is too close to the fire
         if char_fire_h_distance <= 0.2 and char_fire_v_distance <= 0.5:
-            output -= 0
-
-        else:
-
-            output += 0
+            output *= 0.1
 
     fitness = output
 
