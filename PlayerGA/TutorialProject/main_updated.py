@@ -23,6 +23,7 @@ class CollectCoinThread(threading.Thread):
                                num_parents_mating=2,
                                fitness_func=fitness_func,
                                parent_selection_type ="random",
+                               crossover_type="uniform",
                                sol_per_pop=20,
                                num_genes=2,
                                init_range_low=0.0,
