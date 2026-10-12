@@ -19,6 +19,7 @@ import numpy as np
 
 
 INT_MAX = 2147483647
+LEVEL_TIMEOUT_SECONDS = 30.0
 
 
 class CollectCoinThread(threading.Thread):
@@ -147,6 +148,32 @@ class CollectCoinThread(threading.Thread):
 
         coin_pos, monsters_pos, fires_pos = position_func_v3()
         while True:
+            if self.screen.character_killed:
+                return
+
+            elapsed_time = time.perf_counter() - self.screen.level_start_time
+            if elapsed_time >= LEVEL_TIMEOUT_SECONDS:
+                remaining_life = max(
+                    0,
+                    100 * (1 - self.screen.num_collisions_hit / self.screen.num_collisions_level)
+                )
+                print("\n--- LEVEL RESULT ---")
+                print("Result: FAIL (TIMEOUT)")
+                print(f"Coins: {self.screen.num_coins_collected}/{self.screen.num_coins}")
+                print(f"Time taken: {elapsed_time:.2f} seconds")
+                print(f"Total hits: {self.screen.num_collisions_hit}")
+                print(f"Monster hits: {self.screen.monster_hits}")
+                print(f"Fire hits: {self.screen.fire_hits}")
+                print(f"Remaining life: {remaining_life:.1f}%")
+                print("Failure reason: level did not finish within 30 seconds")
+                print("--------------------\n")
+
+                self.screen.character_killed = True
+                kivy.clock.Clock.schedule_once(
+                    functools.partial(app.stop_timed_out_level, lvl_num), 0
+                )
+                return
+
             tsp= CollectCoinThread.create_matrix(start_pos,coin_pos, monsters_pos, fires_pos)
             #print("tsp=", tsp)
             route=CollectCoinThread.findMinRoute(tsp)
@@ -156,6 +183,7 @@ class CollectCoinThread(threading.Thread):
             #    app.start_char_animation(lvl_num, [float(random.uniform(0, 1)), float(random.uniform(0, 1))])
                 app.start_char_animation(lvl_num, coin_pos[route[i]-1])
                 time.sleep(0.4)
+
             coin_pos, monsters_pos, fires_pos = position_func_v3()
             if len(coin_pos) <=0:
                 break
@@ -237,6 +265,7 @@ class CointexApp(kivy.app.App):
 
     def screen_on_pre_enter(self, screen_num):
         curr_screen = self.root.screens[screen_num]
+        curr_screen.level_start_time = time.perf_counter()
         curr_screen.character_killed = False
         curr_screen.num_coins_collected = 0
         curr_screen.ids['character_image_lvl'+str(screen_num)].im_num = curr_screen.ids['character_image_lvl'+str(screen_num)].start_im_num
@@ -245,6 +274,8 @@ class CointexApp(kivy.app.App):
         curr_screen.ids['level_number_lvl'+str(screen_num)].text = "Level "+str(screen_num)
 
         curr_screen.num_collisions_hit = 0
+        curr_screen.monster_hits = 0
+        curr_screen.fire_hits = 0
         remaining_life_percent_lvl_widget = curr_screen.ids['remaining_life_percent_lvl'+str(screen_num)]
         remaining_life_percent_lvl_widget.size_hint = (remaining_life_percent_lvl_widget.remaining_life_size_hint_x, remaining_life_percent_lvl_widget.size_hint[1])
 
@@ -302,6 +333,25 @@ class CointexApp(kivy.app.App):
         collectCoinThread = CollectCoinThread(screen=curr_screen)
         collectCoinThread.start()
 
+    def stop_timed_out_level(self, screen_num, *args):
+        curr_screen = self.root.screens[screen_num]
+        character_image = curr_screen.ids['character_image_lvl'+str(screen_num)]
+
+        self.bg_music.stop()
+        kivy.animation.Animation.cancel_all(character_image)
+        for i in range(curr_screen.num_monsters):
+            kivy.animation.Animation.cancel_all(
+                curr_screen.ids['monster'+str(i+1)+'_image_lvl'+str(screen_num)]
+            )
+        for i in range(curr_screen.num_fires):
+            kivy.animation.Animation.cancel_all(
+                curr_screen.ids['fire'+str(i+1)+'_lvl'+str(screen_num)]
+            )
+
+        kivy.clock.Clock.schedule_once(
+            functools.partial(self.back_to_main_screen, curr_screen.parent), 3
+        )
+
     def start_monst_animation(self, monster_image, new_pos, anim_duration):
         monst_anim = kivy.animation.Animation(pos_hint={'x': new_pos[0], 'y': new_pos[1]}, im_num=monster_image.end_im_num, duration=anim_duration)
         monst_anim.bind(on_complete=self.monst_animation_completed)
@@ -326,6 +376,7 @@ class CointexApp(kivy.app.App):
         gab_y = character_image.height / 2
         if character_image.collide_widget(monster_image) and abs(character_center[0] - monster_center[0]) <= gab_x and abs(character_center[1] - monster_center[1]) <= gab_y:
             curr_screen.num_collisions_hit = curr_screen.num_collisions_hit + 1
+            curr_screen.monster_hits += 1
             life_percent = float(curr_screen.num_collisions_hit)/float(curr_screen.num_collisions_level)
 
 #            life_remaining_percent = 100-round(life_percent, 2)*100
@@ -335,6 +386,16 @@ class CointexApp(kivy.app.App):
             remaining_life_percent_lvl_widget.size_hint =  (remaining_life_size_hint_x-remaining_life_size_hint_x*life_percent, remaining_life_percent_lvl_widget.size_hint[1])
 
             if curr_screen.num_collisions_hit == curr_screen.num_collisions_level:
+                elapsed_time = time.perf_counter() - curr_screen.level_start_time
+                print("\n--- LEVEL RESULT ---")
+                print("Result: FAIL")
+                print(f"Coins: {curr_screen.num_coins_collected}/{curr_screen.num_coins}")
+                print(f"Time taken: {elapsed_time:.2f} seconds")
+                print(f"Total hits: {curr_screen.num_collisions_hit}")
+                print(f"Monster hits: {curr_screen.monster_hits}")
+                print(f"Fire hits: {curr_screen.fire_hits}")
+                print("Remaining life: 0%")
+                print("--------------------\n")
                 self.bg_music.stop()
                 self.char_death_sound.play()
                 curr_screen.character_killed = True
@@ -389,6 +450,17 @@ class CointexApp(kivy.app.App):
                 curr_screen.num_coins_collected = curr_screen.num_coins_collected + 1
                 curr_screen.ids['num_coins_collected_lvl'+str(screen_num)].text = "Coins "+str(curr_screen.num_coins_collected)+"/"+str(curr_screen.num_coins)
                 if curr_screen.num_coins_collected == curr_screen.num_coins:
+                    remaining_life = max(0, 100 * (1 - curr_screen.num_collisions_hit / curr_screen.num_collisions_level))
+                    elapsed_time = time.perf_counter() - curr_screen.level_start_time
+                    print("\n--- LEVEL RESULT ---")
+                    print("Result: WIN")
+                    print(f"Coins: {curr_screen.num_coins_collected}/{curr_screen.num_coins}")
+                    print(f"Time taken: {elapsed_time:.2f} seconds")
+                    print(f"Total hits: {curr_screen.num_collisions_hit}")
+                    print(f"Monster hits: {curr_screen.monster_hits}")
+                    print(f"Fire hits: {curr_screen.fire_hits}")
+                    print(f"Remaining life: {remaining_life:.1f}%")
+                    print("--------------------\n")
                     self.bg_music.stop()
                     self.level_completed_sound.play()
                     kivy.clock.Clock.schedule_once(functools.partial(self.back_to_main_screen, curr_screen.parent), 3)
@@ -429,6 +501,7 @@ class CointexApp(kivy.app.App):
         gab_y = character_image.height / 3
         if character_image.collide_widget(fire_widget) and abs(character_center[0] - fire_center[0]) <= gab_x and abs(character_center[1] - fire_center[1]) <= gab_y:
             curr_screen.num_collisions_hit = curr_screen.num_collisions_hit + 1
+            curr_screen.fire_hits += 1
             life_percent = float(curr_screen.num_collisions_hit)/float(curr_screen.num_collisions_level)
 
             remaining_life_percent_lvl_widget = curr_screen.ids['remaining_life_percent_lvl'+str(screen_num)]
@@ -439,6 +512,16 @@ class CointexApp(kivy.app.App):
             remaining_life_percent_lvl_widget.size_hint =  (remaining_life_size_hint_x-remaining_life_size_hint_x*life_percent, remaining_life_percent_lvl_widget.size_hint[1])
 
             if curr_screen.num_collisions_hit == curr_screen.num_collisions_level:
+                elapsed_time = time.perf_counter() - curr_screen.level_start_time
+                print("\n--- LEVEL RESULT ---")
+                print("Result: FAIL")
+                print(f"Coins: {curr_screen.num_coins_collected}/{curr_screen.num_coins}")
+                print(f"Time taken: {elapsed_time:.2f} seconds")
+                print(f"Total hits: {curr_screen.num_collisions_hit}")
+                print(f"Monster hits: {curr_screen.monster_hits}")
+                print(f"Fire hits: {curr_screen.fire_hits}")
+                print("Remaining life: 0%")
+                print("--------------------\n")
                 self.bg_music.stop()
                 self.char_death_sound.play()
                 curr_screen.character_killed = True
