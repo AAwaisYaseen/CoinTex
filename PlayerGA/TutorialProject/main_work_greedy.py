@@ -7,14 +7,10 @@ import os
 import functools
 import kivy.uix.behaviors
 import pickle
-import pygad
 import threading
 import kivy.base
-import random
 import time
 from typing import DefaultDict
-
-import numpy as np
 
 
 
@@ -45,10 +41,8 @@ class CollectCoinThread(threading.Thread):
                     tem_dif_x.append(-1)
                 else:
                     tem_dif_x.append( abs(coin_pos[i][0]-coin_pos[j][0])+abs(coin_pos[i][1]-coin_pos[j][1]) )
-                 #   print('coin',i,abs(coin_pos[i][0]-coin_pos[j][0])+abs(coin_pos[i][1]-coin_pos[j][1]))
             tem_dif_y.append(tem_dif_x)
 
-        print("coin_pos=",tem_dif_y)
         return tem_dif_y
 
     @staticmethod
@@ -59,23 +53,16 @@ class CollectCoinThread(threading.Thread):
 
 
         tem_coin_pos=coin_pos
-        print("1 tem_coin_pos",tem_coin_pos)
         p=0.3 # parameter to adjust the closeness between coin to monster (or fire)
         for i in range(len(coin_pos)):
             for j in range(len(monsters_pos)):
                 for k in range(len(fires_pos)):
-                #    try:
-                        #print(( abs(coin_pos[i][0]-fires_pos[k][0])+abs(coin_pos[i][1]-fires_pos[k][1]) ))
-            #            print( coin_pos[i][0],fires_pos[k][0],coin_pos[i][1],fires_pos[k][1])
-                 #   except:
-                 #       None
                     try:
                         if ( ( abs(coin_pos[i][0]-monsters_pos[j][0])+abs(coin_pos[i][1]-monsters_pos[j][1]) )<p ) \
                                 or ( ( abs(coin_pos[i][0]-fires_pos[k][0])+abs(coin_pos[i][1]-fires_pos[k][1]) )<p ) :
                             tem_coin_pos.pop(i)
                     except:
                         None
-        print("2 tem_coin_pos",tem_coin_pos)
         return tem_coin_pos
 
     @staticmethod
@@ -132,12 +119,6 @@ class CollectCoinThread(threading.Thread):
 
         sum += min
 
-        # Started from the node where
-        # we finished as well.
-        #print("Minimum Cost is :", sum)
-        #print("route :", route)
-       #print("tsp :", tsp)
-
         return route
 
 
@@ -175,12 +156,9 @@ class CollectCoinThread(threading.Thread):
                 return
 
             tsp= CollectCoinThread.create_matrix(start_pos,coin_pos, monsters_pos, fires_pos)
-            #print("tsp=", tsp)
             route=CollectCoinThread.findMinRoute(tsp)
 
             for i in range(0,len(route)-1):
-
-            #    app.start_char_animation(lvl_num, [float(random.uniform(0, 1)), float(random.uniform(0, 1))])
                 app.start_char_animation(lvl_num, coin_pos[route[i]-1])
                 time.sleep(0.4)
 

@@ -17,7 +17,6 @@ import time
 
 
 ALGORITHM_NAME = "hazard_aware_astar_optimized"
-EXPERIMENT_PHASE = "pilot"
 LEVEL_TIMEOUT_SECONDS = 30.0
 GRID_SIZE = 21
 MAX_MOVE = 8
@@ -292,11 +291,7 @@ class CointexApp(kivy.app.App):
                 os.path.dirname(os.path.abspath(__file__)), "results"
             )
             os.makedirs(result_folder, exist_ok=True)
-            file_name = (
-                "pilot_results.csv"
-                if EXPERIMENT_PHASE == "pilot"
-                else "experiment_results.csv"
-            )
+            file_name = "experiment_results.csv"
             file_path = os.path.join(result_folder, file_name)
             columns = [
                 "algorithm", "level", "run", "result", "coins_collected",
