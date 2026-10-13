@@ -1,6 +1,7 @@
 import kivy.app
 import kivy.uix.screenmanager
 import kivy.uix.image
+import csv
 import random
 import kivy.core.audio
 import os
@@ -12,10 +13,14 @@ import threading
 import kivy.base
 import time
 
+
+ALGORITHM_NAME = "genetic_algorithm"
+LEVEL_TIMEOUT_SECONDS = 30.0
+
 class CollectCoinThread(threading.Thread):
 
     def __init__(self, screen):
-        super().__init__()
+        super().__init__(daemon=True)
         self.screen = screen
 
     def run(self):
@@ -115,21 +120,31 @@ def fitness_func(ga_instance, solution, solution_idx):
 last_fitness = 0
 def callback_generation(ga_instance):
     global last_fitness
-
-
-    max_index=max(range(len(ga_instance.last_generation_fitness[1:])), key=ga_instance.last_generation_fitness[1:].__getitem__)
-
-    best_sol_fitness = ga_instance.last_generation_fitness[max_index+1]
-    fitness_change = best_sol_fitness - last_fitness
     curr_screen = app.root.screens[lvl_num]
 
+    if (
+        len(curr_screen.coins_ids) == 0
+        or curr_screen.character_killed
+        or curr_screen.level_finished
+    ):
+        return "stop"
+
+    elapsed_time = time.perf_counter() - curr_screen.level_start_time
+    if elapsed_time >= LEVEL_TIMEOUT_SECONDS:
+        curr_screen.character_killed = True
+        curr_screen.level_finished = True
+        app.save_result(lvl_num, "FAIL", "timeout")
+        kivy.clock.Clock.schedule_once(
+            functools.partial(app.stop_timed_out_level, lvl_num), 0
+        )
+        return "stop"
+
+    max_index=max(range(len(ga_instance.last_generation_fitness[1:])), key=ga_instance.last_generation_fitness[1:].__getitem__)
+    best_sol_fitness = ga_instance.last_generation_fitness[max_index+1]
+    fitness_change = best_sol_fitness - last_fitness
     last_fitness = best_sol_fitness
 
-    coins = curr_screen.coins_ids
-
-    if len(coins.items()) == 0 or curr_screen.character_killed:
-        return "stop"
-    elif len(coins.items()) != 0 and fitness_change != 0:
+    if fitness_change != 0:
         best_sol = ga_instance.population[max_index+1]
         app.start_char_animation(lvl_num, [float(best_sol[0]),  float(best_sol[1])])
 
@@ -137,6 +152,7 @@ def callback_generation(ga_instance):
 class CointexApp(kivy.app.App):
 
     def on_start(self):
+        self.results_lock = threading.Lock()
         music_dir = os.getcwd()+"/music/"
         self.main_bg_music = kivy.core.audio.SoundLoader.load(music_dir+"bg_music_piano_flute.wav")
         self.main_bg_music.loop = True
@@ -144,6 +160,85 @@ class CointexApp(kivy.app.App):
 
         next_level_num, congrats_displayed_once = self.read_game_info()
         self.activate_levels(next_level_num, congrats_displayed_once)
+
+    def get_run_number(self, file_path, screen_num):
+        run_number = 1
+        if not os.path.exists(file_path):
+            return run_number
+
+        with open(file_path, newline="", encoding="utf-8") as result_file:
+            for row in csv.DictReader(result_file):
+                if (
+                    row.get("algorithm") == ALGORITHM_NAME
+                    and row.get("level") == str(screen_num)
+                ):
+                    run_number += 1
+        return run_number
+
+    def save_result(self, screen_num, result, reason=""):
+        curr_screen = self.root.screens[screen_num]
+
+        with self.results_lock:
+            if curr_screen.result_recorded:
+                return
+            curr_screen.result_recorded = True
+            curr_screen.level_finished = True
+
+            elapsed_time = time.perf_counter() - curr_screen.level_start_time
+            remaining_life = max(
+                0,
+                100 * (
+                    1 - curr_screen.num_collisions_hit / curr_screen.num_collisions_level
+                ),
+            )
+
+            result_folder = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "results"
+            )
+            os.makedirs(result_folder, exist_ok=True)
+            file_name = "experiment_results.csv"
+            file_path = os.path.join(result_folder, file_name)
+            columns = [
+                "algorithm", "level", "run", "result", "coins_collected",
+                "total_coins", "time_seconds", "total_hits", "monster_hits",
+                "fire_hits", "remaining_life_percent", "failure_reason",
+            ]
+
+            run_number = self.get_run_number(file_path, screen_num)
+            file_exists = os.path.exists(file_path)
+            with open(file_path, "a", newline="", encoding="utf-8") as result_file:
+                writer = csv.DictWriter(result_file, fieldnames=columns)
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow({
+                    "algorithm": ALGORITHM_NAME,
+                    "level": screen_num,
+                    "run": run_number,
+                    "result": result,
+                    "coins_collected": curr_screen.num_coins_collected,
+                    "total_coins": curr_screen.num_coins,
+                    "time_seconds": f"{elapsed_time:.2f}",
+                    "total_hits": curr_screen.num_collisions_hit,
+                    "monster_hits": curr_screen.monster_hits,
+                    "fire_hits": curr_screen.fire_hits,
+                    "remaining_life_percent": f"{remaining_life:.1f}",
+                    "failure_reason": reason,
+                })
+
+        shown_result = "FAIL (TIMEOUT)" if reason == "timeout" else result
+        print("\n--- LEVEL RESULT ---")
+        print(f"Algorithm: {ALGORITHM_NAME}")
+        print(f"Result: {shown_result}")
+        print(f"Coins: {curr_screen.num_coins_collected}/{curr_screen.num_coins}")
+        print(f"Time taken: {elapsed_time:.2f} seconds")
+        print(f"Total hits: {curr_screen.num_collisions_hit}")
+        print(f"Monster hits: {curr_screen.monster_hits}")
+        print(f"Fire hits: {curr_screen.fire_hits}")
+        print(f"Remaining life: {remaining_life:.1f}%")
+        if reason:
+            print(f"Failure reason: {reason}")
+        print(f"Saved to: {file_name}")
+        print("--------------------\n")
 
     def read_game_info(self):
         return 24, True
@@ -172,9 +267,14 @@ class CointexApp(kivy.app.App):
         self.activate_levels(next_level_num, congrats_displayed_once)
 
     def screen_on_pre_enter(self, screen_num):
+        global last_fitness
+        last_fitness = 0
+
         curr_screen = self.root.screens[screen_num]
         curr_screen.level_start_time = time.perf_counter()
         curr_screen.character_killed = False
+        curr_screen.level_finished = False
+        curr_screen.result_recorded = False
         curr_screen.num_coins_collected = 0
         curr_screen.ids['character_image_lvl'+str(screen_num)].im_num = curr_screen.ids['character_image_lvl'+str(screen_num)].start_im_num
         for i in range(curr_screen.num_monsters): curr_screen.ids['monster'+str(i+1)+'_image_lvl'+str(screen_num)].im_num = curr_screen.ids['monster'+str(i+1)+'_image_lvl'+str(screen_num)].start_im_num
@@ -234,6 +334,25 @@ class CointexApp(kivy.app.App):
         collectCoinThread = CollectCoinThread(screen=curr_screen)
         collectCoinThread.start()
 
+    def stop_timed_out_level(self, screen_num, *args):
+        curr_screen = self.root.screens[screen_num]
+        character_image = curr_screen.ids['character_image_lvl'+str(screen_num)]
+
+        self.bg_music.stop()
+        kivy.animation.Animation.cancel_all(character_image)
+        for i in range(curr_screen.num_monsters):
+            kivy.animation.Animation.cancel_all(
+                curr_screen.ids['monster'+str(i+1)+'_image_lvl'+str(screen_num)]
+            )
+        for i in range(curr_screen.num_fires):
+            kivy.animation.Animation.cancel_all(
+                curr_screen.ids['fire'+str(i+1)+'_lvl'+str(screen_num)]
+            )
+
+        kivy.clock.Clock.schedule_once(
+            functools.partial(self.back_to_main_screen, curr_screen.parent), 3
+        )
+
     def start_monst_animation(self, monster_image, new_pos, anim_duration):
         monst_anim = kivy.animation.Animation(pos_hint={'x': new_pos[0], 'y': new_pos[1]}, im_num=monster_image.end_im_num, duration=anim_duration)
         monst_anim.bind(on_complete=self.monst_animation_completed)
@@ -267,17 +386,11 @@ class CointexApp(kivy.app.App):
             remaining_life_size_hint_x = remaining_life_percent_lvl_widget.remaining_life_size_hint_x
             remaining_life_percent_lvl_widget.size_hint =  (remaining_life_size_hint_x-remaining_life_size_hint_x*life_percent, remaining_life_percent_lvl_widget.size_hint[1])
 
-            if curr_screen.num_collisions_hit == curr_screen.num_collisions_level:
-                elapsed_time = time.perf_counter() - curr_screen.level_start_time
-                print("\n--- LEVEL RESULT ---")
-                print("Result: FAIL")
-                print(f"Coins: {curr_screen.num_coins_collected}/{curr_screen.num_coins}")
-                print(f"Time taken: {elapsed_time:.2f} seconds")
-                print(f"Total hits: {curr_screen.num_collisions_hit}")
-                print(f"Monster hits: {curr_screen.monster_hits}")
-                print(f"Fire hits: {curr_screen.fire_hits}")
-                print("Remaining life: 0%")
-                print("--------------------\n")
+            if (
+                curr_screen.num_collisions_hit >= curr_screen.num_collisions_level
+                and not curr_screen.level_finished
+            ):
+                self.save_result(screen_num, "FAIL", "collision_death")
                 self.bg_music.stop()
                 self.char_death_sound.play()
                 curr_screen.character_killed = True
@@ -332,17 +445,7 @@ class CointexApp(kivy.app.App):
                 curr_screen.num_coins_collected = curr_screen.num_coins_collected + 1
                 curr_screen.ids['num_coins_collected_lvl'+str(screen_num)].text = "Coins "+str(curr_screen.num_coins_collected)+"/"+str(curr_screen.num_coins)
                 if curr_screen.num_coins_collected == curr_screen.num_coins:
-                    remaining_life = max(0, 100 * (1 - curr_screen.num_collisions_hit / curr_screen.num_collisions_level))
-                    elapsed_time = time.perf_counter() - curr_screen.level_start_time
-                    print("\n--- LEVEL RESULT ---")
-                    print("Result: WIN")
-                    print(f"Coins: {curr_screen.num_coins_collected}/{curr_screen.num_coins}")
-                    print(f"Time taken: {elapsed_time:.2f} seconds")
-                    print(f"Total hits: {curr_screen.num_collisions_hit}")
-                    print(f"Monster hits: {curr_screen.monster_hits}")
-                    print(f"Fire hits: {curr_screen.fire_hits}")
-                    print(f"Remaining life: {remaining_life:.1f}%")
-                    print("--------------------\n")
+                    self.save_result(screen_num, "WIN")
                     
                     self.bg_music.stop()
                     self.level_completed_sound.play()
@@ -394,17 +497,11 @@ class CointexApp(kivy.app.App):
             remaining_life_size_hint_x = remaining_life_percent_lvl_widget.remaining_life_size_hint_x
             remaining_life_percent_lvl_widget.size_hint =  (remaining_life_size_hint_x-remaining_life_size_hint_x*life_percent, remaining_life_percent_lvl_widget.size_hint[1])
 
-            if curr_screen.num_collisions_hit == curr_screen.num_collisions_level:
-                elapsed_time = time.perf_counter() - curr_screen.level_start_time
-                print("\n--- LEVEL RESULT ---")
-                print("Result: FAIL")
-                print(f"Coins: {curr_screen.num_coins_collected}/{curr_screen.num_coins}")
-                print(f"Time taken: {elapsed_time:.2f} seconds")
-                print(f"Total hits: {curr_screen.num_collisions_hit}")
-                print(f"Monster hits: {curr_screen.monster_hits}")
-                print(f"Fire hits: {curr_screen.fire_hits}")
-                print("Remaining life: 0%")
-                print("--------------------\n")
+            if (
+                curr_screen.num_collisions_hit >= curr_screen.num_collisions_level
+                and not curr_screen.level_finished
+            ):
+                self.save_result(screen_num, "FAIL", "collision_death")
                 self.bg_music.stop()
                 self.char_death_sound.play()
                 curr_screen.character_killed = True
