@@ -1,0 +1,4 @@
+Algorithm,Runs,Wins,Success Rate,Mean Successful Time (s)
+Greedy,80,50,62.50,5.43
+Hazard-Aware A*,80,69,86.25,6.37
+Genetic Algorithm,80,62,77.50,7.79

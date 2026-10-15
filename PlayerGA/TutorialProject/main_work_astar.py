@@ -291,7 +291,7 @@ class CointexApp(kivy.app.App):
                 os.path.dirname(os.path.abspath(__file__)), "results"
             )
             os.makedirs(result_folder, exist_ok=True)
-            file_name = "experiment_results.csv"
+            file_name = "test_runs.csv"
             file_path = os.path.join(result_folder, file_name)
             columns = [
                 "algorithm", "level", "run", "result", "coins_collected",
