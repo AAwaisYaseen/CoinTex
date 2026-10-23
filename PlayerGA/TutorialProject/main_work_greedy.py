@@ -226,7 +226,7 @@ class CointexApp(kivy.app.App):
             curr_screen.level_finished = True
 
             elapsed_time = time.perf_counter() - curr_screen.level_start_time
-            remaining_life = max(0,100 * (1 - curr_screen.num_collisions_hit / curr_screen.num_collisions_level))
+            remaining_life = max(0, 100 * (1 - curr_screen.num_collisions_hit / curr_screen.num_collisions_level))
 
             result_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
             os.makedirs(result_folder, exist_ok=True)
@@ -379,13 +379,9 @@ class CointexApp(kivy.app.App):
         self.bg_music.stop()
         kivy.animation.Animation.cancel_all(character_image)
         for i in range(curr_screen.num_monsters):
-            kivy.animation.Animation.cancel_all(
-                curr_screen.ids['monster'+str(i+1)+'_image_lvl'+str(screen_num)]
-            )
+            kivy.animation.Animation.cancel_all(curr_screen.ids['monster'+str(i+1)+'_image_lvl'+str(screen_num)])
         for i in range(curr_screen.num_fires):
-            kivy.animation.Animation.cancel_all(
-                curr_screen.ids['fire'+str(i+1)+'_lvl'+str(screen_num)]
-            )
+            kivy.animation.Animation.cancel_all(curr_screen.ids['fire'+str(i+1)+'_lvl'+str(screen_num)])
 
         kivy.clock.Clock.schedule_once(functools.partial(self.back_to_main_screen, curr_screen.parent), 3)
 
@@ -529,10 +525,7 @@ class CointexApp(kivy.app.App):
             remaining_life_size_hint_x = remaining_life_percent_lvl_widget.remaining_life_size_hint_x
             remaining_life_percent_lvl_widget.size_hint =  (remaining_life_size_hint_x-remaining_life_size_hint_x*life_percent, remaining_life_percent_lvl_widget.size_hint[1])
 
-            if (
-                curr_screen.num_collisions_hit >= curr_screen.num_collisions_level
-                and not curr_screen.level_finished
-            ):
+            if (curr_screen.num_collisions_hit >= curr_screen.num_collisions_level and not curr_screen.level_finished):
                 self.save_result(screen_num, "FAIL", "collision_death")
                 self.bg_music.stop()
                 self.char_death_sound.play()
