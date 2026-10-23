@@ -138,9 +138,7 @@ class CollectCoinThread(threading.Thread):
             if elapsed_time >= LEVEL_TIMEOUT_SECONDS:
                 self.screen.character_killed = True
                 app.save_result(lvl_num, "FAIL", "timeout")
-                kivy.clock.Clock.schedule_once(
-                    functools.partial(app.stop_timed_out_level, lvl_num), 0
-                )
+                kivy.clock.Clock.schedule_once(functools.partial(app.stop_timed_out_level, lvl_num), 0)
                 return
 
             tsp= CollectCoinThread.create_matrix(start_pos,coin_pos, monsters_pos, fires_pos)
@@ -214,10 +212,7 @@ class CointexApp(kivy.app.App):
 
         with open(file_path, newline="", encoding="utf-8") as result_file:
             for row in csv.DictReader(result_file):
-                if (
-                    row.get("algorithm") == ALGORITHM_NAME
-                    and row.get("level") == str(screen_num)
-                ):
+                if (row.get("algorithm") == ALGORITHM_NAME and row.get("level") == str(screen_num)):
                     run_number += 1
         return run_number
 
@@ -231,16 +226,9 @@ class CointexApp(kivy.app.App):
             curr_screen.level_finished = True
 
             elapsed_time = time.perf_counter() - curr_screen.level_start_time
-            remaining_life = max(
-                0,
-                100 * (
-                    1 - curr_screen.num_collisions_hit / curr_screen.num_collisions_level
-                ),
-            )
+            remaining_life = max(0,100 * (1 - curr_screen.num_collisions_hit / curr_screen.num_collisions_level))
 
-            result_folder = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "results"
-            )
+            result_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
             os.makedirs(result_folder, exist_ok=True)
             file_name = "test_runs.csv"
             file_path = os.path.join(result_folder, file_name)
@@ -399,9 +387,7 @@ class CointexApp(kivy.app.App):
                 curr_screen.ids['fire'+str(i+1)+'_lvl'+str(screen_num)]
             )
 
-        kivy.clock.Clock.schedule_once(
-            functools.partial(self.back_to_main_screen, curr_screen.parent), 3
-        )
+        kivy.clock.Clock.schedule_once(functools.partial(self.back_to_main_screen, curr_screen.parent), 3)
 
     def start_monst_animation(self, monster_image, new_pos, anim_duration):
         monst_anim = kivy.animation.Animation(pos_hint={'x': new_pos[0], 'y': new_pos[1]}, im_num=monster_image.end_im_num, duration=anim_duration)
@@ -436,10 +422,7 @@ class CointexApp(kivy.app.App):
             remaining_life_size_hint_x = remaining_life_percent_lvl_widget.remaining_life_size_hint_x
             remaining_life_percent_lvl_widget.size_hint =  (remaining_life_size_hint_x-remaining_life_size_hint_x*life_percent, remaining_life_percent_lvl_widget.size_hint[1])
 
-            if (
-                curr_screen.num_collisions_hit >= curr_screen.num_collisions_level
-                and not curr_screen.level_finished
-            ):
+            if (curr_screen.num_collisions_hit >= curr_screen.num_collisions_level and not curr_screen.level_finished):
                 self.save_result(screen_num, "FAIL", "collision_death")
                 self.bg_music.stop()
                 self.char_death_sound.play()

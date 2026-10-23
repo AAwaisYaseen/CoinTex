@@ -160,6 +160,9 @@ class CollectCoinThread(threading.Thread):
         if CollectCoinThread.line_is_safe(character, coin, monsters, fires):
             return coin
 
+        if len(path) < 2:
+            return coin
+
         last_step = min(MAX_MOVE, len(path) - 1)
         for step in range(last_step, 0, -1):
             target = CollectCoinThread.to_position(path[step])

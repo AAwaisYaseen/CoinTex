@@ -1,4 +1,4 @@
-Algorithm,Runs,Wins,Success Rate,Mean Successful Time (s)
-Greedy,80,50,62.50,5.43
-Hazard-Aware A*,80,69,86.25,6.37
-Genetic Algorithm,80,62,77.50,7.79
+algorithm_name,runs,wins,success_rate,avg_hits,avg_monster_hits,avg_fire_hits,avg_life,avg_coin_completion,mean_win_time
+Greedy,80,50,62.5,16.15,11.4,4.75,44.77,84.44,5.43
+Hazard-Aware A*,80,69,86.25,7.34,3.88,3.46,74.84,94.67,6.37
+Genetic Algorithm,80,62,77.5,14.54,7.81,6.72,50.11,97.41,7.79

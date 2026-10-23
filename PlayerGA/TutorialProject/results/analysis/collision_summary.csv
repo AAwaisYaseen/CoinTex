@@ -1,4 +1,0 @@
-algorithm_name,mean_total_hits,mean_monster_hits,mean_fire_hits
-Greedy,16.15,11.40,4.75
-Hazard-Aware A*,7.34,3.88,3.46
-Genetic Algorithm,14.54,7.81,6.72
